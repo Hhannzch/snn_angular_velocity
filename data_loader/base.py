@@ -61,7 +61,7 @@ class DatasetBase(Dataset):
                 data['ang_ts_us'] = torch.from_numpy(hf['ang_ts'][()])
 
         if self.nTimeBins is None:
-            self.nTimeBins = data['ang_ts_us'].numel()
+            self.nTimeBins = data['ang_ts_us'].numel() # return 100
         else:
             assert self.nTimeBins == data['ang_ts_us'].numel()
 
@@ -73,8 +73,10 @@ class DatasetBase(Dataset):
                                                                 data['ev_xy'],
                                                                 data['ev_ts_us'],
                                                                 data['ang_ts_us'])
+        # generate spike tensor: [2, 180, 240, 100]
+
         data['ang_xyz'] = data['ang_xyz'].t()
-        assert data['ang_xyz'].size(0) == 3
+        assert data['ang_xyz'].size(0) == 3 # [3, 100]
         out = {
             'file_number': int(''.join(filter(str.isdigit, Path(subseq_file).stem))),
             'spike_tensor': spike_tensor,
@@ -82,6 +84,8 @@ class DatasetBase(Dataset):
         }
         assert len(data) == 5
         return out
+
+        # return: sequence number, [2, 180, 240, 100], target [3, 100]
 
 
 class DataAugmentation:
