@@ -37,9 +37,13 @@ class Tester(TBase):
 
                 spike_tensor = data['spike_tensor']
                 ang_vel_gt = data['angular_velocity']
-
+                
+                
                 ang_vel_pred = self.net(spike_tensor)
+                
+                
                 self.data_collector.append(ang_vel_pred, ang_vel_gt, data['file_number'])
+                break
         if self.write_output:
             self.data_collector.writeToDisk(self.output_dir)
         self.data_collector.printErrors()

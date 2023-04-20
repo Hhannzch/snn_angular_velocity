@@ -37,6 +37,7 @@ class DatasetBase(Dataset):
     def __len__(self):
         assert self.subsequences
         return len(self.subsequences)
+        # return 5000
 
     def __getitem__(self, index: int):
         assert self.subsequences

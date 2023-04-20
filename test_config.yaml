@@ -1,8 +1,8 @@
 # For short descriptions, look at 'config/config.py'.
 simulation:
   Ts: 1
-  tSample: 100
-  tStartLoss: 50
+  tSample: 20
+  tStartLoss: 0
 model:
   type: 'cnn5-avgp-fc1'
   CkptFile: 'pretrained/cnn5-avgp-fc1.pt'

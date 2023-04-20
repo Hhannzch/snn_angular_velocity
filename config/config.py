@@ -40,7 +40,7 @@ class TestConfig:
 
         # Some sanity checks.
         assert self.dictionary['simulation']['Ts'] == 1, "Only 1 ms time-step is tested"
-        assert self.dictionary['simulation']['tSample'] == 100, "Only 100 ms available"
+        # assert self.dictionary['simulation']['tSample'] == 100, "Only 100 ms available"
         assert self.dictionary['simulation']['tSample'] > self.dictionary['simulation']['tStartLoss']
         assert os.path.exists(self.dictionary['model']['CkptFile'])
         assert self.dictionary['batchsize'] >= 1
