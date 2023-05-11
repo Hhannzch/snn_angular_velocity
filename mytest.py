@@ -33,6 +33,9 @@ print(data['ang_ts_us'].size())
 
 print(data['ang_ts_us'].numel())
 
+print("get time stamp:")
+print(data['ang_ts_us'])
+
 
 subseq_file = '/home/chuhan/chuhan/rotation_work/snn_angular_velocity/data/test/seq_23.h5'
 print(int(''.join(filter(str.isdigit, Path(subseq_file).stem))))
@@ -46,7 +49,9 @@ test_loader = torch.utils.data.DataLoader(
                 shuffle=False)
 for i, (res) in enumerate(test_loader):
     print(res['spike_tensor'].size())
+    print(res['angular_velocity'].size())
     event = res['spike_tensor'][0].permute(3,0,1,2)[0:50, :, :, :]
     snn_animation(event, "data1.gif")
     break
+
 

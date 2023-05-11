@@ -56,7 +56,7 @@ test_Data = train_Data + test_
 test_Set = DataLoader(test_Data, batch_size=1, shuffle=False)
 
 execute = 'train'
-label = "srm"
+label = "srm_translation"
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 random.seed(1120)
@@ -78,11 +78,12 @@ if execute == 'train':
     # model.load_state_dict(torch.load(model_save_path))
     criterion = nn.MSELoss(reduction='mean')
     optimizer = torch.optim.Adam(net.parameters(), lr=1e-3)
-    nepoch = 100
+    nepoch = 40
     moveToGPUDevice(net, device_net, dtype)
     net = net.train()
 
     print_graph = []
+    print_graph_val = []
     for epoch in range(nepoch):
 
         if epoch>25:
@@ -131,6 +132,7 @@ if execute == 'train':
                 print_msg = "[" + str(epoch+1) + ", "+ str(i+1) + "]" + ", running_loss: " + str(print_loss/10) + ", val_loss: " + str(val_loss)
                 print(print_msg)
                 print_graph.append(print_loss/10)
+                print_graph_val.append(val_loss)
                 print_loss = 0.0
 
         train_loss = np.average(train_losses)
@@ -139,7 +141,8 @@ if execute == 'train':
         torch.save(net.state_dict(), model_save_path, _use_new_zipfile_serialization=False)
 
     plt.figure(1)
-    plt.plot(print_graph, color='darkgoldenrod')
+    plt.plot(print_graph, color='darkgoldenrod', label='train set')
+    plt.plot(print_graph_val, color='slateblue', label='val set')
     plt.title("Training process: loss trendency")
     plt.savefig(os.path.join(dir, f"training_loss.png"))
     plt.close()
