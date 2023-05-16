@@ -46,7 +46,7 @@ test_Data = test_
 test_Set = DataLoader(test_Data, batch_size=1, shuffle=False)
 
 execute = 'train'
-label = "srm_pretrain_translation"
+label = "srm_pretrain_translation_their"
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 random.seed(1120)
@@ -68,7 +68,7 @@ write = 'store_true'
 
 configs = getTestConfigs(logdir, config)
 
-device = configs['general']['hardware']['gpuDevice']
+device_net= configs['general']['hardware']['gpuDevice']
 dtype = configs['general']['model']['dtype']
 
 pre_net = getNetwork(configs['general']['model']['type'],
@@ -87,7 +87,7 @@ def loadNetFromCheckpoint(net, general_config, log_config):
     net = getNetwork(general_config['model']['type'],
             general_config['simulation'])
     net.load_state_dict(checkpoint['model_state_dict'])
-    moveToGPUDevice(net, device, dtype)
+    moveToGPUDevice(net, device_net, dtype)
     log_config.copyModelFile(net)
 
     return net
@@ -98,7 +98,7 @@ class snnConvModel_pretrained(nn.Module):
     def __init__(self, net, num_steps=20):
         super().__init__()
         self.net = net
-        self.fc = nn.Linear(384, 3)
+        self.fc = nn.Linear(256, 3)
         self.num_steps = num_steps
 
     def forward(self, x):
@@ -110,19 +110,8 @@ class snnConvModel_pretrained(nn.Module):
         # out_from_net: [bs, channel (256), x (8), y (12), ts (20)]
         out = out_from_net.permute(0, 4, 1, 2, 3)
         # out: [bs, ts (20), channel (256), x (8), y (12)]
-        out1 = out.narrow(2, 0, 64) # [bs, ts, 64, 8, 12]
-        out2 = out.narrow(2, 64, 64)
-        out3 = out.narrow(2, 128, 64)
-        out4 = out.narrow(2, 192, 64)
-
-        out1 = torch.sum(out1, dim=2) / 64
-        out2 = torch.sum(out2, dim=2) / 64
-        out3 = torch.sum(out3, dim=2) / 64
-        out4 = torch.sum(out4, dim=2) / 64
-
-        out = torch.cat((out1, out2, out3, out4), dim=2)
-        # out: [bs, ts (20), 4, x, y]
-
+        out = torch.sum(out, dim=3)
+        out = torch.sum(out, dim=3)
         out = self.fc(out.reshape(batch_size, self.num_steps, -1))
 
         return out
@@ -135,7 +124,7 @@ if execute == 'train':
     # model.load_state_dict(torch.load(model_save_path))
     criterion = nn.MSELoss(reduction='mean')
     optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
-    nepoch = 40
+    nepoch = 50
     net = net.train()
     net = net.to(device)
 
