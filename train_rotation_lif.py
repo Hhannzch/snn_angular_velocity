@@ -1,4 +1,9 @@
 import torch
+from pathlib import Path
+from data_loader.testing import TestDatabase
+import tonic
+
+import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 import snntorch as snn
@@ -16,33 +21,50 @@ from model import getNetwork
 from utils.gpu import moveToGPUDevice
 from config.utils import getTestConfigs
 
+# ==================== utils function ========================
+
+def getSampledData(events_, targets_):
+    assert(events_.size()[1]==100)
+    assert(targets_.size()[1]==100)
+
+    event_list = []
+    target_list = []
+
+    for i in range(100):
+        if i%5==0:
+            event_list.append(events_[:, i])
+            target_list.append(targets_[:, i])
+
+    event = torch.stack(event_list).permute(1, 0, 2, 3, 4).float()
+    target = torch.stack(target_list).permute(1, 0, 2).float()
+
+    return event, target
 
 # ==================== load data =============================
 
-data_set = snnDataset(label='xyz_mid_2')
-index_train = list(range(0, 200))
-index_test = list(range(200, len(data_set)))
+data_dir = '/home/chuhan/chuhan/rotation_work/snn_angular_velocity/data'
+
+data_set = TestDatabase(data_dir)
+index_train = list(range(0, len(data_set)-300))
+index_test = list(range(len(data_set)-300, len(data_set)))
+
 train_ = torch.utils.data.Subset(data_set, index_train)
 test_ = torch.utils.data.Subset(data_set, index_test)
 
-train_Data = snnDataset(label='xyz_mid_1') \
-            +train_ \
-            +snnDataset(label='xyz_mid_4') \
-            +snnDataset(label='xyz_slow_fast_3') \
-            +snnDataset(label='xyz_slow_fast_2')
+train_Data = train_
 train_len_total = len(train_Data)
-train_len = int(train_len_total * 0.7)
+train_len = int(train_len_total * 0.8)
 val_len = train_len_total - train_len
 train_dataset, val_dataset = torch.utils.data.random_split(train_Data, [train_len, val_len], generator=torch.manual_seed(1120))
 
-train_Set = DataLoader(train_dataset, batch_size=16, shuffle=True, drop_last=True)
-val_Set = DataLoader(val_dataset, batch_size=16, shuffle=True, drop_last=True)
+train_Set = DataLoader(train_dataset, batch_size=8, shuffle=True, drop_last=True)
+val_Set = DataLoader(val_dataset, batch_size=8, shuffle=True, drop_last=True)
 
 test_Data = test_
 test_Set = DataLoader(test_Data, batch_size=1, shuffle=False)
 
 execute = 'test'
-label = "lif_translation"
+label = "lif_rotation"
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 random.seed(1120)
@@ -114,6 +136,7 @@ class snnConvModel(nn.Module):
 
         return out
 
+
 # ==================== begin training =============================
 net = snnConvModel(spike_grad=surrogate.fast_sigmoid(slope=25))
 model_save_path = os.path.join(dir, f"snn_model.pth")
@@ -121,8 +144,8 @@ model_save_path = os.path.join(dir, f"snn_model.pth")
 if execute == 'train':
     # model.load_state_dict(torch.load(model_save_path))
     criterion = nn.MSELoss(reduction='mean')
-    optimizer = torch.optim.Adam(net.parameters(), lr=1e-3)
-    nepoch = 40
+    optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
+    nepoch = 20
     net = net.train()
     net = net.to(device)
 
@@ -136,7 +159,12 @@ if execute == 'train':
         train_losses = []
         print_loss = 0.
 
-        for i, (events, targets) in enumerate(train_Set):
+        for i, (res) in enumerate(train_Set):
+            events_ = res['spike_tensor'].permute(0, 4, 1, 2, 3) # [bs, 100, 2, 180, 240]
+            targets_ = res['angular_velocity'].permute(0, 2, 1) # [bs, 100, 3]
+            events, targets = getSampledData(events_, targets_)
+
+
             events = events.to(device)
             targets = targets.to(device)
 
@@ -158,7 +186,10 @@ if execute == 'train':
                 with torch.no_grad():
                     count = 0.
                     val_loss = 0.
-                    for j, (events_val, targets_val) in enumerate(val_Set):
+                    for j, (res) in enumerate(val_Set):
+                        events_ = res['spike_tensor'].permute(0, 4, 1, 2, 3) # [bs, 100, 2, 180, 240]
+                        targets_ = res['angular_velocity'].permute(0, 2, 1) # [bs, 100, 3]
+                        events_val, targets_val = getSampledData(events_, targets_)
                         events_val = events_val.to(device)
                         targets_val = targets_val.to(device)
 
@@ -187,7 +218,7 @@ if execute == 'train':
     plt.savefig(os.path.join(dir, f"training_loss.png"))
     plt.close()
 
-elif execute=="test":
+elif execute=='test':
     net.load_state_dict(torch.load(model_save_path, map_location=device))
     net = net.to(device)
 
@@ -196,19 +227,26 @@ elif execute=="test":
     changes_hat = []
 
     loss = [0., 0., 0.]
+    # position = np.array([[0., 0., 0.]])
+    # position_hat = np.array([[0., 0., 0.]])
 
     with torch.no_grad():
-        for i, (event, target) in enumerate(test_Set):
+        for i, (res) in enumerate(test_Set):
+            events_ = res['spike_tensor'].permute(0, 4, 1, 2, 3) # [bs, 100, 2, 180, 240]
+            targets_ = res['angular_velocity'].permute(0, 2, 1) # [bs, 100, 3]
+            event, target = getSampledData(events_, targets_)
             event = event.to(device)
             target = target.to(device)
             
             change = target.cpu().numpy()
             changes.append(list(change[0][-1]))
+            # position = np.row_stack((position, position[-1, :]+change))
 
             change_hat = net(event)
             # change_hat = torch.sum(change_hat, dim=1)
             change_hat = change_hat[0].cpu().numpy()[-1]
             changes_hat.append(list(change_hat))
+            # position_hat = np.row_stack((position_hat, position_hat[-1, :]+change_hat))
 
             loss += abs(change - change_hat)
 
@@ -239,6 +277,14 @@ elif execute=="test":
 
     plt.savefig(os.path.join(dir, f"relative_error.png"))
     plt.close()
+
+    print(f"The final test loss is: {loss}")
+
+    changes = np.array(changes)
+    changes_hat = np.array(changes_hat)
+    print(changes.shape)
+    print(changes_hat.shape)
+
 
     # print trajectory
     plt.figure(figsize=(19, 24))

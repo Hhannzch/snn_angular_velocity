@@ -18,7 +18,7 @@ def snn_animation(snn_data, path):
     ani.save(path, writer=pw_writer)
 
 data = dict()
-hf = h5py.File('/home/chuhan/chuhan/rotation_work/snn_angular_velocity/data/test/seq_23.h5', 'r')
+hf = h5py.File('/home/chuhan/chuhan/rotation_work/snn_angular_velocity/data/test/seq_34.h5', 'r')
 data['ev_xy'] = torch.from_numpy(hf['ev_xy'][()])
 data['ev_ts_us'] = torch.from_numpy(hf['ev_ts'][()])
 data['ev_pol'] = torch.from_numpy(hf['ev_pol'][()])
@@ -30,6 +30,8 @@ print(data['ev_ts_us'].size())
 print(data['ev_pol'].size())
 print(data['ang_xyz'].size())
 print(data['ang_ts_us'].size())
+
+print(data['ang_ts_us'])
 
 print(data['ang_ts_us'].numel())
 
@@ -50,6 +52,7 @@ test_loader = torch.utils.data.DataLoader(
 for i, (res) in enumerate(test_loader):
     print(res['spike_tensor'].size())
     print(res['angular_velocity'].size())
+    print(res['angular_velocity'])
     event = res['spike_tensor'][0].permute(3,0,1,2)[0:50, :, :, :]
     snn_animation(event, "data1.gif")
     break
