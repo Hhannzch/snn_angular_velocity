@@ -10,7 +10,7 @@ import snntorch.spikeplot as splt
 from pathlib import Path
 import os
 from panda_data_utils import *
-
+import datetime
 from model import getNetwork
 #from utils import moveToGPUDevice
 from utils.gpu import moveToGPUDevice
@@ -117,12 +117,15 @@ class snnConvModel(nn.Module):
 # ==================== begin training =============================
 net = snnConvModel(spike_grad=surrogate.fast_sigmoid(slope=25))
 model_save_path = os.path.join(dir, f"snn_model.pth")
+log_train_save_path = os.path.join(dir, f"log_train.txt")
+log_val_save_path = os.path.join(dir, f"log_val.txt")
 
 if execute == 'train':
+    time_before = datetime.datetime.now()
     # model.load_state_dict(torch.load(model_save_path))
     criterion = nn.MSELoss(reduction='mean')
     optimizer = torch.optim.Adam(net.parameters(), lr=1e-3)
-    nepoch = 40
+    nepoch = 50
     net = net.train()
     net = net.to(device)
 
@@ -179,6 +182,8 @@ if execute == 'train':
         print_msg = "epoch: " + str(epoch+1) + ", train_loss: " + str(train_loss)
         print(print_msg)
         torch.save(net.state_dict(), model_save_path, _use_new_zipfile_serialization=False)
+    
+    time_after = datetime.datetime.now()
 
     plt.figure(1)
     plt.plot(print_graph, color='darkgoldenrod', label='train set')
@@ -186,6 +191,15 @@ if execute == 'train':
     plt.title("Training process: loss trendency")
     plt.savefig(os.path.join(dir, f"training_loss.png"))
     plt.close()
+
+    print(f"Total training time is: {time_after-time_before}")
+
+    with open(log_train_save_path, "w") as f:
+        for i in print_graph:
+            f.write(str(i)+'\n')
+    with open(log_val_save_path, "w") as f:
+        for i in print_graph_val:
+            f.write(str(i)+'\n')
 
 elif execute=="test":
     net.load_state_dict(torch.load(model_save_path, map_location=device))

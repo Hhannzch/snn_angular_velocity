@@ -10,7 +10,7 @@ import snntorch.spikeplot as splt
 from pathlib import Path
 import os
 from panda_data_utils import *
-
+import datetime
 from model import getNetwork
 #from utils import moveToGPUDevice
 from utils.gpu import moveToGPUDevice
@@ -45,17 +45,17 @@ train_Data = snnDataset(label='xyz_mid_1') \
             +snnDataset(label='xyz_slow_fast_3') \
             +snnDataset(label='xyz_slow_fast_2')
 train_len_total = len(train_Data)
-train_len = int(train_len_total * 0.9)
+train_len = int(train_len_total * 0.7)
 val_len = train_len_total - train_len
 train_dataset, val_dataset = torch.utils.data.random_split(train_Data, [train_len, val_len], generator=torch.manual_seed(1120))
 
-train_Set = DataLoader(train_dataset, batch_size=8, shuffle=True, drop_last=True)
-val_Set = DataLoader(val_dataset, batch_size=8, shuffle=True, drop_last=True)
+train_Set = DataLoader(train_dataset, batch_size=16, shuffle=True, drop_last=True)
+val_Set = DataLoader(val_dataset, batch_size=16, shuffle=True, drop_last=True)
 
 test_Data = test_
 test_Set = DataLoader(test_Data, batch_size=1, shuffle=False)
 
-execute = 'test'
+execute = 'train'
 label = "srm_translation"
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -67,18 +67,21 @@ torch.cuda.manual_seed_all(1120)
 dir = os.path.join("output", label)
 output_dir = Path(dir)
 output_dir.mkdir(parents=True, exist_ok=True)
-model_save_path = os.path.join(dir, f"snn_model.pth")
 
-print(f"length of the train set is {len(train_Set)}")
-print(f"length of the validate set is {len(val_Set)}")
+print(len(train_Set))
+print(len(val_Set))
 
 # ==================== begin training =============================
+model_save_path = os.path.join(dir, f"snn_model.pth")
+log_train_save_path = os.path.join(dir, f"log_train.txt")
+log_val_save_path = os.path.join(dir, f"log_val.txt")
 
 if execute == 'train':
+    time_before = datetime.datetime.now()
     # model.load_state_dict(torch.load(model_save_path))
     criterion = nn.MSELoss(reduction='mean')
     optimizer = torch.optim.Adam(net.parameters(), lr=1e-3)
-    nepoch = 40
+    nepoch = 50
     moveToGPUDevice(net, device_net, dtype)
     net = net.train()
 
@@ -102,7 +105,7 @@ if execute == 'train':
             targets = targets.permute(0, 2, 1)
 
             out = net(events)
-
+            
             loss = criterion(out, targets)
 
             optimizer.zero_grad()
@@ -140,12 +143,23 @@ if execute == 'train':
         print(print_msg)
         torch.save(net.state_dict(), model_save_path, _use_new_zipfile_serialization=False)
 
+    time_after = datetime.datetime.now()
+
     plt.figure(1)
     plt.plot(print_graph, color='darkgoldenrod', label='train set')
     plt.plot(print_graph_val, color='slateblue', label='val set')
     plt.title("Training process: loss trendency")
     plt.savefig(os.path.join(dir, f"training_loss.png"))
     plt.close()
+
+    print(f"Total training time is: {time_after-time_before}")
+
+    with open(log_train_save_path, "w") as f:
+        for i in print_graph:
+            f.write(str(i)+'\n')
+    with open(log_val_save_path, "w") as f:
+        for i in print_graph_val:
+            f.write(str(i)+'\n')
 
 elif execute=="test":
     net.load_state_dict(torch.load(model_save_path, map_location=device))

@@ -20,6 +20,7 @@ from model import getNetwork
 from utils.gpu import moveToGPUDevice
 from config.utils import getTestConfigs
 from panda_data_utils import *
+import datetime
 
 # ==================== load data =============================
 
@@ -45,7 +46,7 @@ val_Set = DataLoader(val_dataset, batch_size=16, shuffle=True, drop_last=True)
 test_Data = test_
 test_Set = DataLoader(test_Data, batch_size=1, shuffle=False)
 
-execute = 'train'
+execute = 'test'
 label = "srm_pretrain_translation_my"
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -130,8 +131,11 @@ class snnConvModel_pretrained(nn.Module):
 # ==================== begin training =============================
 net = snnConvModel_pretrained(pre_net)
 model_save_path = os.path.join(dir, f"snn_model.pth")
+log_train_save_path = os.path.join(dir, f"log_train.txt")
+log_val_save_path = os.path.join(dir, f"log_val.txt")
 
 if execute == 'train':
+    time_before = datetime.datetime.now()
     # model.load_state_dict(torch.load(model_save_path))
     criterion = nn.MSELoss(reduction='mean')
     optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
@@ -190,9 +194,100 @@ if execute == 'train':
         print(print_msg)
         torch.save(net.state_dict(), model_save_path, _use_new_zipfile_serialization=False)
 
+    time_after = datetime.datetime.now()
+
     plt.figure(1)
     plt.plot(print_graph, color='darkgoldenrod', label='train set')
     plt.plot(print_graph_val, color='slateblue', label='val set')
     plt.title("Training process: loss trendency")
     plt.savefig(os.path.join(dir, f"training_loss.png"))
+    plt.close()
+
+    print(f"Total training time is: {time_after-time_before}")
+
+    with open(log_train_save_path, "w") as f:
+        for i in print_graph:
+            f.write(str(i)+'\n')
+    with open(log_val_save_path, "w") as f:
+        for i in print_graph_val:
+            f.write(str(i)+'\n')
+
+elif execute=="test":
+    net.load_state_dict(torch.load(model_save_path, map_location=device))
+    moveToGPUDevice(net, device_net, dtype)
+
+    changes = []
+    changes_hat = []
+
+    loss = [0., 0., 0.]
+
+    with torch.no_grad():
+        for i, (event, target) in enumerate(test_Set):
+            event = event.to(device)
+            target = target.to(device)
+            
+            change = target.cpu().numpy()
+            changes.append(list(change[0][-1]))
+
+            change_hat = net(event)
+            
+            # change_hat = torch.sum(change_hat, dim=1)
+            change_hat = change_hat.cpu().numpy()[0][-1]
+            changes_hat.append(list(change_hat))
+
+            loss += abs(change - change_hat)
+
+    print(f"The final test loss is: {loss}")
+
+    changes = np.array(changes)
+    changes_hat = np.array(changes_hat)
+    print(changes.shape)
+    print(changes_hat.shape)
+
+    changes_tensor = torch.tensor(changes)
+    changes_hat_tensor = torch.tensor(changes_hat)
+
+    relative_loss = torch.div(torch.abs(changes_tensor - changes_hat_tensor), torch.abs(changes_tensor))
+    plt.figure(figsize=(19, 24))
+    plt.subplot(311)
+    plt.title("x axis")
+    plt.plot(relative_loss[:,0].numpy())
+    plt.ylim((0, 100))
+    plt.subplot(312)
+    plt.title("y axis")
+    plt.plot(relative_loss[:,1].numpy())
+    plt.ylim((0, 100))
+    plt.subplot(313)
+    plt.title("z axis")
+    plt.plot(relative_loss[:,2].numpy())
+    plt.ylim((0, 1000))
+
+    plt.savefig(os.path.join(dir, f"relative_error.png"))
+    plt.close()
+
+    # print trajectory
+    plt.figure(figsize=(19, 24))
+    plt.subplot(311)
+    plt.title('Results comparison: x-change')
+    plt.plot(changes[:,0], color='brown', label='changes')
+    plt.plot(changes_hat[:,0], color='royalblue', label='changes_hat', alpha=0.7)
+    plt.ylim((-12, 12))
+    plt.legend()
+
+    plt.subplot(312)
+    plt.title('Results comparison: y-change')
+    plt.plot(changes[:,1], color='brown', label='changes')
+    plt.plot(changes_hat[:,1], color='royalblue', label='changes_hat', alpha=0.7)
+    plt.ylim((-12, 12))
+    plt.legend()
+
+    plt.subplot(313)
+    plt.title('Results comparison: z-change')
+    plt.plot(changes[:,2], color='brown', label='changes')
+    plt.plot(changes_hat[:,2], color='royalblue', label='changes_hat', alpha=0.7)
+    plt.ylim((-12, 12))
+    plt.legend()
+
+
+    plt.savefig(os.path.join(dir, f"result_position.png"))
     plt.close()
