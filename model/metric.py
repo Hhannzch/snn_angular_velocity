@@ -13,7 +13,7 @@ def medianRelativeError(pred: np.ndarray, gt: np.ndarray):
     diff_norm = diff_norm[is_valid]
     gt_norm = gt_norm[is_valid]
     rel_errors = np.divide(diff_norm, gt_norm)
-    return np.median(rel_errors)
+    return np.mean(rel_errors)
 
 def rmse(pred: np.ndarray, gt: np.ndarray, deg: bool=True):
     # pred/gt: (samplesize, 3, time) tensor
@@ -21,4 +21,24 @@ def rmse(pred: np.ndarray, gt: np.ndarray, deg: bool=True):
     rmse = np.mean(np.sqrt(np.sum(np.square(pred - gt), axis=1).flatten()))
     if deg:
         rmse = rmse/np.pi*180
+    return rmse
+
+def medianRelativeError_translation(pred: np.ndarray, gt: np.ndarray):
+    # pred/gt: (samplesize, 3, time) tensor
+
+    gt_norm = np.linalg.norm(gt, ord=2, axis=1).flatten()
+    diff_norm = np.linalg.norm(gt - pred, ord=2, axis=1).flatten()
+
+    # Do not take groundtruth into account that is not equal to 0.
+    is_valid = (np.abs(gt_norm) != 0.)
+    diff_norm = diff_norm[is_valid]
+    gt_norm = gt_norm[is_valid]
+    rel_errors = np.divide(diff_norm, gt_norm)
+    return np.mean(rel_errors)
+
+def rmse_translation(pred: np.ndarray, gt: np.ndarray):
+    # pred/gt: (samplesize, 3, time) tensor
+
+    rmse = np.mean(np.sqrt(np.sum(np.square(pred - gt), axis=1).flatten()))
+    
     return rmse

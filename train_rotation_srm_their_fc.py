@@ -15,7 +15,7 @@ import snntorch.spikeplot as splt
 from pathlib import Path
 import os
 from panda_data_utils import *
-
+from model.metric import rmse,medianRelativeError
 from model import getNetwork
 #from utils import moveToGPUDevice
 from utils.gpu import moveToGPUDevice
@@ -46,7 +46,7 @@ val_Set = DataLoader(val_dataset, batch_size=8, shuffle=True, drop_last=True)
 test_Data = test_
 test_Set = DataLoader(test_Data, batch_size=1, shuffle=False)
 
-execute = 'test_all_pretrain'
+execute = 'test'
 label = "srm_pretrain_rotation_their"
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -291,6 +291,9 @@ elif execute=='test':
     plt.savefig(os.path.join(dir, f"result_position.png"))
     plt.close()
 
+    print('RMSE: {} deg/s'.format(rmse(changes_hat, changes, deg=True)))
+    print('median of relative error: {}'.format(medianRelativeError(changes_hat, changes)))
+
 elif execute=='test_all_pretrain':
     net = pre_net
     moveToGPUDevice(net, device_net, dtype)
@@ -376,3 +379,6 @@ elif execute=='test_all_pretrain':
 
     plt.savefig(os.path.join(dir, f"result_position_all_pretrain.png"))
     plt.close()
+
+    print('RMSE: {} deg/s'.format(rmse(changes_hat, changes, deg=True)))
+    print('median of relative error: {}'.format(medianRelativeError(changes_hat, changes)))

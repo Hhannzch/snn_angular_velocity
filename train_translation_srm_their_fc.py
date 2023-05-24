@@ -21,6 +21,7 @@ from utils.gpu import moveToGPUDevice
 from config.utils import getTestConfigs
 from panda_data_utils import *
 import datetime
+from model.metric import medianRelativeError_translation, rmse_translation
 
 # ==================== load data =============================
 
@@ -46,7 +47,7 @@ val_Set = DataLoader(val_dataset, batch_size=16, shuffle=True, drop_last=True)
 test_Data = test_
 test_Set = DataLoader(test_Data, batch_size=1, shuffle=False)
 
-execute = 'train'
+execute = 'test'
 label = "srm_pretrain_translation_their"
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -280,3 +281,6 @@ elif execute=="test":
 
     plt.savefig(os.path.join(dir, f"result_position.png"))
     plt.close()
+
+    print('RMSE: {} cm/s'.format(rmse_translation(changes_hat, changes)))
+    print('median of relative error: {}'.format(medianRelativeError_translation(changes_hat, changes)))

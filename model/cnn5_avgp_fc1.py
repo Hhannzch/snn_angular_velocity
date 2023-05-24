@@ -138,12 +138,12 @@ class SNN(SpikeModule):
         self.addMetaTensor('conv5', MetaTensor(spikes_layer_5, TensorLayout.Conv, DataType.Spike))
 
         # Apply average pooling on spike-trains.
-        spikes_mean = torch.mean(spikes_layer_5, dim=(2, 3), keepdims=True)
-        psp_out = self.slayer_fc.psp(self.fc(spikes_mean))
-        self.addOutputMetaTensor(MetaTensor(psp_out, TensorLayout.FC, DataType.Dense))
+        # spikes_mean = torch.mean(spikes_layer_5, dim=(2, 3), keepdims=True)
+        # psp_out = self.slayer_fc.psp(self.fc(spikes_mean))
+        # self.addOutputMetaTensor(MetaTensor(psp_out, TensorLayout.FC, DataType.Dense))
 
-        assert psp_out.shape[1] == 3
-        # Return: (batch, ang-vel, time)
-        return psp_out.squeeze()
+        # assert psp_out.shape[1] == 3
+        # # Return: (batch, ang-vel, time)
+        # return psp_out.squeeze()
 
         return spikes_layer_5

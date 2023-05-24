@@ -15,7 +15,7 @@ import snntorch.spikeplot as splt
 from pathlib import Path
 import os
 from panda_data_utils import *
-
+from model.metric import rmse, medianRelativeError
 from model import getNetwork
 #from utils import moveToGPUDevice
 from utils.gpu import moveToGPUDevice
@@ -302,3 +302,6 @@ elif execute=='test':
 
     plt.savefig(os.path.join(dir, f"result_position.png"))
     plt.close()
+
+    print('RMSE: {} deg/s'.format(rmse(changes_hat, changes, deg=True)))
+    print('median of relative error: {}'.format(medianRelativeError(changes_hat, changes)))

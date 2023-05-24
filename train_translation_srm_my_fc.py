@@ -21,6 +21,7 @@ from utils.gpu import moveToGPUDevice
 from config.utils import getTestConfigs
 from panda_data_utils import *
 import datetime
+from model.metric import medianRelativeError_translation, rmse_translation
 
 # ==================== load data =============================
 
@@ -291,3 +292,6 @@ elif execute=="test":
 
     plt.savefig(os.path.join(dir, f"result_position.png"))
     plt.close()
+
+    print('RMSE: {} cm/s'.format(rmse_translation(changes_hat, changes)))
+    print('median of relative error: {}'.format(medianRelativeError_translation(changes_hat, changes)))
