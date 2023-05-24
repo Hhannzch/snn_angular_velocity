@@ -1,4 +1,9 @@
 import torch
+from pathlib import Path
+from data_loader.testing import TestDatabase
+import tonic
+
+import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 import snntorch as snn
@@ -8,46 +13,41 @@ import random
 import imageio
 import snntorch.spikeplot as splt
 from pathlib import Path
-from data_loader.testing import TestDatabase
-from tqdm import tqdm, trange
-import torch
-from pathlib import Path
-from data_loader.testing import TestDatabase
-import tonic
 import os
+from panda_data_utils import *
+
 from model import getNetwork
 #from utils import moveToGPUDevice
 from utils.gpu import moveToGPUDevice
 from config.utils import getTestConfigs
-from panda_data_utils import *
 import datetime
 
-# ==================== load data =============================
+# ==================== utils function ========================
 
-data_set = snnDataset(label='xyz_mid_2')
-index_train = list(range(0, 200))
-index_test = list(range(200, len(data_set)))
+# ==================== load network ========================
+data_dir = '/home/chuhan/chuhan/rotation_work/snn_angular_velocity/data'
+
+data_set = TestDatabase(data_dir)
+index_train = list(range(0, len(data_set)-300))
+index_test = list(range(len(data_set)-300, len(data_set)))
+
 train_ = torch.utils.data.Subset(data_set, index_train)
 test_ = torch.utils.data.Subset(data_set, index_test)
 
-train_Data = snnDataset(label='xyz_mid_1') \
-            +train_ \
-            +snnDataset(label='xyz_mid_4') \
-            +snnDataset(label='xyz_slow_fast_3') \
-            +snnDataset(label='xyz_slow_fast_2')
+train_Data = train_
 train_len_total = len(train_Data)
-train_len = int(train_len_total * 0.7)
+train_len = int(train_len_total * 0.8)
 val_len = train_len_total - train_len
 train_dataset, val_dataset = torch.utils.data.random_split(train_Data, [train_len, val_len], generator=torch.manual_seed(1120))
 
-train_Set = DataLoader(train_dataset, batch_size=16, shuffle=True, drop_last=True)
-val_Set = DataLoader(val_dataset, batch_size=16, shuffle=True, drop_last=True)
+train_Set = DataLoader(train_dataset, batch_size=8, shuffle=True, drop_last=True)
+val_Set = DataLoader(val_dataset, batch_size=8, shuffle=True, drop_last=True)
 
 test_Data = test_
 test_Set = DataLoader(test_Data, batch_size=1, shuffle=False)
 
-execute = 'train'
-label = "srm_pretrain_translation_their"
+execute = 'test_all_pretrain'
+label = "srm_pretrain_rotation_their"
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 random.seed(1120)
@@ -58,6 +58,7 @@ torch.cuda.manual_seed_all(1120)
 dir = os.path.join("output", label)
 output_dir = Path(dir)
 output_dir.mkdir(parents=True, exist_ok=True)
+model_save_path = os.path.join(dir, f"snn_model.pth")
 
 print(len(train_Set))
 print(len(val_Set))
@@ -96,7 +97,7 @@ def loadNetFromCheckpoint(net, general_config, log_config):
 pre_net = loadNetFromCheckpoint(pre_net, general_config, log_config)
 
 class snnConvModel_pretrained(nn.Module):
-    def __init__(self, net, num_steps=20):
+    def __init__(self, net, num_steps=100):
         super().__init__()
         self.net = net
         self.fc = nn.Linear(256, 3)
@@ -139,9 +140,11 @@ if execute == 'train':
         train_losses = []
         print_loss = 0.
 
-        for i, (events, targets) in enumerate(train_Set):
-            events = events.to(device)
-            targets = targets.to(device)
+        for i, (res) in enumerate(train_Set):
+            events_ = res['spike_tensor'].permute(0, 4, 1, 2, 3).float() # [bs, 2, 180, 240, 100]
+            targets_ = res['angular_velocity'].permute(0, 2, 1).float() # [bs, 100, 3]
+            events = events_.to(device)
+            targets = targets_.to(device)
 
             batch_size = events.size()[0]
 
@@ -161,7 +164,9 @@ if execute == 'train':
                 with torch.no_grad():
                     count = 0.
                     val_loss = 0.
-                    for j, (events_val, targets_val) in enumerate(val_Set):
+                    for j, (res) in enumerate(val_Set):
+                        events_val = res['spike_tensor'].permute(0, 4, 1, 2, 3).float()  # [bs, 2, 180, 240, 100]
+                        targets_val = res['angular_velocity'].permute(0, 2, 1).float()  # [bs, 3, 100]
                         events_val = events_val.to(device)
                         targets_val = targets_val.to(device)
 
@@ -201,38 +206,36 @@ if execute == 'train':
         for i in print_graph_val:
             f.write(str(i)+'\n')
 
-elif execute=="test":
-    net.load_state_dict(torch.load(model_save_path, map_location=device))
+elif execute=='test':
+    net.load_state_dict(torch.load(model_save_path))
     moveToGPUDevice(net, device_net, dtype)
 
     changes = []
     changes_hat = []
 
     loss = [0., 0., 0.]
+    # position = np.array([[0., 0., 0.]])
+    # position_hat = np.array([[0., 0., 0.]])
 
     with torch.no_grad():
-        for i, (event, target) in enumerate(test_Set):
-            event = event.to(device)
-            target = target.to(device)
+        for i, (res) in enumerate(test_Set):
+            events_ = res['spike_tensor'].permute(0, 4, 1, 2, 3).float() # [bs, 100, 2, 180, 240]
+            targets_ = res['angular_velocity'].permute(0, 2, 1).float() # [bs, 100, 3]
+            event = events_.to(device)
+            target = targets_.to(device)
             
             change = target.cpu().numpy()
             changes.append(list(change[0][-1]))
+            # position = np.row_stack((position, position[-1, :]+change))
 
             change_hat = net(event)
-            
             # change_hat = torch.sum(change_hat, dim=1)
             change_hat = change_hat.cpu().numpy()[0][-1]
             changes_hat.append(list(change_hat))
+            # position_hat = np.row_stack((position_hat, position_hat[-1, :]+change_hat))
+            
 
             loss += abs(change - change_hat)
-
-    print(f"The final test loss is: {loss}")
-
-    changes = np.array(changes)
-    changes_hat = np.array(changes_hat)
-    print(changes.shape)
-    print(changes_hat.shape)
-
     changes_tensor = torch.tensor(changes)
     changes_hat_tensor = torch.tensor(changes_hat)
 
@@ -253,6 +256,13 @@ elif execute=="test":
 
     plt.savefig(os.path.join(dir, f"relative_error.png"))
     plt.close()
+
+    print(f"The final test loss is: {loss}")
+
+    changes = np.array(changes)
+    changes_hat = np.array(changes_hat)
+    print(changes.shape)
+    print(changes_hat.shape)
 
     # print trajectory
     plt.figure(figsize=(19, 24))
@@ -279,4 +289,90 @@ elif execute=="test":
 
 
     plt.savefig(os.path.join(dir, f"result_position.png"))
+    plt.close()
+
+elif execute=='test_all_pretrain':
+    net = pre_net
+    moveToGPUDevice(net, device_net, dtype)
+
+    changes = []
+    changes_hat = []
+
+    loss = [0., 0., 0.]
+    # position = np.array([[0., 0., 0.]])
+    # position_hat = np.array([[0., 0., 0.]])
+
+    with torch.no_grad():
+        for i, (res) in enumerate(test_Set):
+            events_ = res['spike_tensor'].float() # [bs, 100, 2, 180, 240]
+            targets_ = res['angular_velocity'].permute(0, 2, 1).float() # [bs, 100, 3]
+            event = events_.to(device)
+            target = targets_.to(device)
+            
+            change = target.cpu().numpy()
+            changes.append(list(change[0][-1]))
+            # position = np.row_stack((position, position[-1, :]+change))
+
+            change_hat = net(event)
+            # change_hat = torch.sum(change_hat, dim=1)
+            
+            change_hat = change_hat.permute(1, 0).cpu().numpy()[-1]
+            changes_hat.append(list(change_hat))
+            # position_hat = np.row_stack((position_hat, position_hat[-1, :]+change_hat))
+            
+
+            loss += abs(change - change_hat)
+    changes_tensor = torch.tensor(changes)
+    changes_hat_tensor = torch.tensor(changes_hat)
+
+    relative_loss = torch.div(torch.abs(changes_tensor - changes_hat_tensor), torch.abs(changes_tensor))
+    plt.figure(figsize=(19, 24))
+    plt.subplot(311)
+    plt.title("x axis")
+    plt.plot(relative_loss[:,0].numpy())
+    plt.ylim((0, 100))
+    plt.subplot(312)
+    plt.title("y axis")
+    plt.plot(relative_loss[:,1].numpy())
+    plt.ylim((0, 100))
+    plt.subplot(313)
+    plt.title("z axis")
+    plt.plot(relative_loss[:,2].numpy())
+    plt.ylim((0, 1000))
+
+    plt.savefig(os.path.join(dir, f"relative_error_all_pretrain.png"))
+    plt.close()
+
+    print(f"The final test loss is: {loss}")
+
+    changes = np.array(changes)
+    changes_hat = np.array(changes_hat)
+    print(changes.shape)
+    print(changes_hat.shape)
+
+    # print trajectory
+    plt.figure(figsize=(19, 24))
+    plt.subplot(311)
+    plt.title('Results comparison: x-change')
+    plt.plot(changes[:,0], color='brown', label='changes')
+    plt.plot(changes_hat[:,0], color='royalblue', label='changes_hat', alpha=0.7)
+    plt.ylim((-12, 12))
+    plt.legend()
+
+    plt.subplot(312)
+    plt.title('Results comparison: y-change')
+    plt.plot(changes[:,1], color='brown', label='changes')
+    plt.plot(changes_hat[:,1], color='royalblue', label='changes_hat', alpha=0.7)
+    plt.ylim((-12, 12))
+    plt.legend()
+
+    plt.subplot(313)
+    plt.title('Results comparison: z-change')
+    plt.plot(changes[:,2], color='brown', label='changes')
+    plt.plot(changes_hat[:,2], color='royalblue', label='changes_hat', alpha=0.7)
+    plt.ylim((-12, 12))
+    plt.legend()
+
+
+    plt.savefig(os.path.join(dir, f"result_position_all_pretrain.png"))
     plt.close()
