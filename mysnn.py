@@ -63,6 +63,12 @@ data = data.permute(0, 2, 3, 4, 1)
 out = net(data)
 print(out.size())
 
+def get_parameter_number(net): 
+    total_num = sum(p.numel() for p in net.parameters()) 
+    trainable_num = sum(p.numel() for p in net.parameters() if p.requires_grad) 
+    return {'Total': total_num, 'Trainable': trainable_num}
+
+print(get_parameter_number(net))
 
 # conv1 = torch.nn.Conv2d(2, 16, 3, stride=2)
 # conv2 = torch.nn.Conv2d(16, 32, 3, stride=2)

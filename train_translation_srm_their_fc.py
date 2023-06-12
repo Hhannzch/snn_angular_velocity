@@ -47,8 +47,8 @@ val_Set = DataLoader(val_dataset, batch_size=16, shuffle=True, drop_last=True)
 test_Data = test_
 test_Set = DataLoader(test_Data, batch_size=1, shuffle=False)
 
-execute = 'test'
-label = "srm_pretrain_translation_their"
+execute = 'train'
+label = "srm_pretrain_translation_their_time"
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 random.seed(1120)
@@ -129,7 +129,7 @@ if execute == 'train':
     # model.load_state_dict(torch.load(model_save_path))
     criterion = nn.MSELoss(reduction='mean')
     optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
-    nepoch = 50
+    nepoch = 1
     net = net.train()
     net = net.to(device)
 

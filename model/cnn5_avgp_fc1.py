@@ -137,7 +137,7 @@ class SNN(SpikeModule):
         self.addMetaTensor('conv4', MetaTensor(spikes_layer_4, TensorLayout.Conv, DataType.Spike))
         self.addMetaTensor('conv5', MetaTensor(spikes_layer_5, TensorLayout.Conv, DataType.Spike))
 
-        # Apply average pooling on spike-trains.
+        # # Apply average pooling on spike-trains.
         # spikes_mean = torch.mean(spikes_layer_5, dim=(2, 3), keepdims=True)
         # psp_out = self.slayer_fc.psp(self.fc(spikes_mean))
         # self.addOutputMetaTensor(MetaTensor(psp_out, TensorLayout.FC, DataType.Dense))

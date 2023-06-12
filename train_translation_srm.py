@@ -56,7 +56,7 @@ test_Data = test_
 test_Set = DataLoader(test_Data, batch_size=1, shuffle=False)
 
 execute = 'train'
-label = "srm_translation"
+label = "srm_translation_time"
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 random.seed(1120)
@@ -81,7 +81,7 @@ if execute == 'train':
     # model.load_state_dict(torch.load(model_save_path))
     criterion = nn.MSELoss(reduction='mean')
     optimizer = torch.optim.Adam(net.parameters(), lr=1e-3)
-    nepoch = 50
+    nepoch = 1
     moveToGPUDevice(net, device_net, dtype)
     net = net.train()
 
