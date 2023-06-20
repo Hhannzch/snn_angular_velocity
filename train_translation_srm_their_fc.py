@@ -48,7 +48,7 @@ test_Data = test_
 test_Set = DataLoader(test_Data, batch_size=1, shuffle=False)
 
 execute = 'train'
-label = "srm_pretrain_translation_their_time"
+label = "srm_pretrain_translation_their_(test)"
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 random.seed(1120)
@@ -99,7 +99,8 @@ pre_net = loadNetFromCheckpoint(pre_net, general_config, log_config)
 class snnConvModel_pretrained(nn.Module):
     def __init__(self, net, num_steps=20):
         super().__init__()
-        self.net = net
+        with torch.no_grad():
+            self.net = net
         self.fc = nn.Linear(256, 3)
         self.num_steps = num_steps
 
@@ -108,7 +109,8 @@ class snnConvModel_pretrained(nn.Module):
         x = x.permute(0, 2, 3, 4, 1)
         batch_size = x.size()[0]
 
-        out_from_net = self.net(x)
+        with torch.no_grad():
+            out_from_net = self.net(x)
         # out_from_net: [bs, channel (256), x (8), y (12), ts (20)]
         out = out_from_net.permute(0, 4, 1, 2, 3)
         # out: [bs, ts (20), channel (256), x (8), y (12)]

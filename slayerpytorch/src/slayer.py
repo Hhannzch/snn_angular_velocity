@@ -519,7 +519,7 @@ class _pspFunction(torch.autograd.Function):
     def forward(ctx, spike, filter, Ts):
         device = spike.device
         dtype  = spike.dtype
-        psp = slayerCuda.conv(spike.contiguous(), filter, Ts)
+        psp = slayerCuda.conv(spike.contiguous(), filter.float(), Ts)
         Ts = torch.autograd.Variable(torch.tensor(Ts, device=device, dtype=dtype), requires_grad=False)
         ctx.save_for_backward(filter, Ts)
         return psp
@@ -527,7 +527,7 @@ class _pspFunction(torch.autograd.Function):
     @staticmethod
     def backward(ctx, gradOutput):
         (filter, Ts) = ctx.saved_tensors
-        gradInput = slayerCuda.corr(gradOutput.contiguous(), filter, Ts)
+        gradInput = slayerCuda.corr(gradOutput.contiguous(), filter.float(), Ts)
         if filter.requires_grad is False:
             gradFilter = None
         else:

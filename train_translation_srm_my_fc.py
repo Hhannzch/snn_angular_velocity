@@ -47,8 +47,8 @@ val_Set = DataLoader(val_dataset, batch_size=16, shuffle=True, drop_last=True)
 test_Data = test_
 test_Set = DataLoader(test_Data, batch_size=1, shuffle=False)
 
-execute = 'test'
-label = "srm_pretrain_translation_my"
+execute = 'train'
+label = "srm_pretrain_translation_my_(test)"
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 random.seed(1120)
@@ -76,25 +76,25 @@ dtype = configs['general']['model']['dtype']
 pre_net = getNetwork(configs['general']['model']['type'],
                 configs['general']['simulation'])
 
-general_config = configs['general']
-log_config = configs['log']
+# general_config = configs['general']
+# log_config = configs['log']
 
-def loadNetFromCheckpoint(net, general_config, log_config):
-    ckpt_file = general_config['model']['CkptFile']
-    print('Loading checkpoint from {}'.format(ckpt_file))
-    assert ckpt_file
-    checkpoint = torch.load(ckpt_file,
-            map_location=general_config['hardware']['gpuDevice'])
+# def loadNetFromCheckpoint(net, general_config, log_config):
+#     ckpt_file = general_config['model']['CkptFile']
+#     print('Loading checkpoint from {}'.format(ckpt_file))
+#     assert ckpt_file
+#     checkpoint = torch.load(ckpt_file,
+#             map_location=general_config['hardware']['gpuDevice'])
 
-    net = getNetwork(general_config['model']['type'],
-            general_config['simulation'])
-    net.load_state_dict(checkpoint['model_state_dict'])
-    moveToGPUDevice(net, device_net, dtype)
-    log_config.copyModelFile(net)
+#     net = getNetwork(general_config['model']['type'],
+#             general_config['simulation'])
+#     net.load_state_dict(checkpoint['model_state_dict'])
+#     moveToGPUDevice(net, device_net, dtype)
+#     log_config.copyModelFile(net)
 
-    return net
+#     return net
 
-pre_net = loadNetFromCheckpoint(pre_net, general_config, log_config)
+# pre_net = loadNetFromCheckpoint(pre_net, general_config, log_config)
 
 class snnConvModel_pretrained(nn.Module):
     def __init__(self, net, num_steps=20):

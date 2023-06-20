@@ -28,8 +28,9 @@ import datetime
 data_dir = '/home/chuhan/chuhan/rotation_work/snn_angular_velocity/data'
 
 data_set = TestDatabase(data_dir)
-index_train = list(range(0, len(data_set)-300))
-index_test = list(range(len(data_set)-300, len(data_set)))
+len_test = int(len(data_set) * 0.2)
+index_train = list(range(0, len(data_set)-len_test))
+index_test = list(range(len(data_set)-len_test, len(data_set)))
 
 train_ = torch.utils.data.Subset(data_set, index_train)
 test_ = torch.utils.data.Subset(data_set, index_test)
@@ -46,8 +47,8 @@ val_Set = DataLoader(val_dataset, batch_size=8, shuffle=True, drop_last=True)
 test_Data = test_
 test_Set = DataLoader(test_Data, batch_size=1, shuffle=False)
 
-execute = 'test'
-label = "srm_pretrain_rotation_their"
+execute = 'train'
+label = "srm_pretrain_rotation_their_(test)"
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 random.seed(1120)
@@ -99,7 +100,8 @@ pre_net = loadNetFromCheckpoint(pre_net, general_config, log_config)
 class snnConvModel_pretrained(nn.Module):
     def __init__(self, net, num_steps=100):
         super().__init__()
-        self.net = net
+        with torch.no_grad():
+            self.net = net
         self.fc = nn.Linear(256, 3)
         self.num_steps = num_steps
 
@@ -108,7 +110,8 @@ class snnConvModel_pretrained(nn.Module):
         x = x.permute(0, 2, 3, 4, 1)
         batch_size = x.size()[0]
 
-        out_from_net = self.net(x)
+        with torch.no_grad():
+            out_from_net = self.net(x)
         # out_from_net: [bs, channel (256), x (8), y (12), ts (20)]
         out = out_from_net.permute(0, 4, 1, 2, 3)
         # out: [bs, ts (20), channel (256), x (8), y (12)]
